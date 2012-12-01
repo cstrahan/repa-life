@@ -36,8 +36,6 @@ import qualified Graphics.UI.GLFW as GLFW
 import Prelude hiding (catch)
 import System.Environment
 
-import Debug.Trace
-
 type Grid = A.Array A.U A.DIM2 Word8
 
 main = do
@@ -129,13 +127,16 @@ mainLoop !grid generations = do
     fps = 15
     spf = recip fps
 
+-- | Create a new grid
 freshGrid :: Int -> Grid
 freshGrid gridSize =
-    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCells
+    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCell
 
     where
       cx = gridSize `div` 2
-      initCells ix
+
+      -- | Initialize a grid cell. Guards are used to make the initial pattern.
+      initCell ix
 
 {- Blinker
           | ix == (A.Z :. cx :. cx) = 1
@@ -154,6 +155,7 @@ freshGrid gridSize =
 
           | otherwise = 0
 
+-- | Evolve the grid one generation
 updateGrid :: Grid -> IO Grid
 updateGrid = A.computeP
              . A.smap step
@@ -174,9 +176,7 @@ draw :: Grid -> IO ()
 draw grid = do
   uploadGridAsTexture
 
-  -- Again, the functions in GL all map to standard OpenGL functions
   GL.clear [GL.ColorBuffer]
-
   GL.loadIdentity
   GL.scale (fromIntegral width) (fromIntegral height) (1 :: GL.GLfloat)
 
@@ -199,9 +199,16 @@ draw grid = do
       texS = fromIntegral width / fromIntegral maxS
       texT = fromIntegral height / fromIntegral maxT
 
+      -- | Convert the grid to a texture and send it to the graphics card
       uploadGridAsTexture = do
-              grayscale <- A.computeUnboxedP . pad . A.transpose . A.map toGrayscale $ grid :: IO Grid
+              -- convert the grid to grayscale and pad it to the texture size
+              grayscale <- A.computeUnboxedP . pad . A.transpose . A.map toGrayscale
+                           $ grid :: IO Grid
+
+              -- convert the grid to a storable vector
               let unboxed = VS.convert . A.toUnboxed $ grayscale
+
+              -- upload the storable vector to texture memory
               VS.unsafeWith unboxed $ \ptr -> do
                   GL.texImage2D Nothing GL.NoProxy 0 GL.Luminance'
                     (GL.TextureSize2D (fromIntegral maxS) (fromIntegral maxT))
@@ -218,14 +225,10 @@ draw grid = do
                    then lkup ix
                    else 0
 
+-- | Calculate the first power of 2 >= val. This is not an
+--   efficient method, but it's only called once.
 nextPowerOf2 val = go 1
     where
       go n
           | n >= val = n
           | otherwise = go (2 * n)
-
-byteCount :: VS.Storable a => VS.Vector a -> GL.GLsizeiptr
-byteCount vec = (elSize undefined vec) * (fromIntegral . VS.length $ vec)
-    where
-      elSize :: VS.Storable a => a -> VS.Vector a -> GL.GLsizeiptr
-      elSize dummy _ = fromIntegral $ sizeOf dummy
