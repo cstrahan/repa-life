@@ -52,14 +52,16 @@ run gridSize generations = do
   -- initialize has to come first. If it doesn't return True,
   -- this crashes with a pattern match error.
   True <- GLFW.initialize
+
+  let winSize = 2 * gridSize
   
   -- Set the RGB bits to get a color window. See the GLFW-b docs for all the options
   True <- GLFW.openWindow GLFW.defaultDisplayOptions
           { GLFW.displayOptions_numRedBits = 8
           , GLFW.displayOptions_numGreenBits = 8
           , GLFW.displayOptions_numBlueBits = 8
-          , GLFW.displayOptions_width = 640
-          , GLFW.displayOptions_height = 480
+          , GLFW.displayOptions_width = winSize
+          , GLFW.displayOptions_height = winSize
           }
 
   GLFW.setWindowSizeCallback $ resize gridSize
