@@ -33,5 +33,5 @@ generations
 [life]: http://en.wikipedia.org/wiki/Conway's_Game_of_Life
 [Haskell]: http://haskell.org/
 [repa]: http://hackage.haskell.org/package/repa
-[post]: http://www.tapdancinggoats.com/
+[post]: http://www.tapdancinggoats.com/haskell-life-repa.htm
 [old version]: http://www.tapdancinggoats.com/haskell-life.htm
