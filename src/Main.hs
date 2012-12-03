@@ -37,17 +37,27 @@ import qualified Graphics.UI.GLFW as GLFW
 import Prelude hiding (catch)
 import System.Environment
 
+import LifePattern
+import PatternParsers
+
 type Grid = A.Array A.U A.DIM2 Word8
 
 main = do
   args <- getArgs
   case args of
-    [size] -> run (read size) Nothing
-    [size, generations] -> run (read size) (Just $ read generations)
-    _ -> putStrLn "Usage: repa-life <grid size> [generations]"
+    [size, pattern] -> run (read size) pattern Nothing
+    [size, pattern, generations] -> run (read size) pattern (Just $ read generations)
+    _ -> putStrLn "Usage: repa-life <grid size> <pattern file> [generations]"
 
-run :: Int -> Maybe Int -> IO ()
-run gridSize generations = do
+run :: Int -> FilePath -> Maybe Int -> IO ()
+run gridSize pattern generations = do
+  parseResult <- parseFile pattern
+  case parseResult of
+    SuccessfulParse pattern' -> startSimulation gridSize pattern' generations
+    err -> putStrLn $ "Error in pattern file: " ++ show err
+
+startSimulation :: Int -> LifePattern -> Maybe Int -> IO ()
+startSimulation gridSize pattern generations = do
   -- initialize has to come first. If it doesn't return True,
   -- this crashes with a pattern match error.
   True <- GLFW.initialize
@@ -73,7 +83,7 @@ run gridSize generations = do
       GL.textureWrapMode GL.Texture2D coord $= (GL.Repeated, GL.Clamp)
 
   -- Use `finally` so that `quit` is called whether or not `mainLoop` throws an exception
-  finally (mainLoop (freshGrid gridSize) generations False) quit
+  finally (mainLoop (freshGrid gridSize pattern) generations False) quit
 
 -- | Resize the viewport and set the projection matrix
 resize :: (Integral n1, Integral n2) => n1 -> n2 -> n2 -> IO ()
@@ -130,32 +140,18 @@ mainLoop !grid generations active = do
     spf = recip fps
 
 -- | Create a new grid
-freshGrid :: Int -> Grid
-freshGrid gridSize =
-    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCell
+freshGrid :: Int -> LifePattern -> Grid
+freshGrid gridSize pattern =
+    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCell'
 
     where
       cx = gridSize `div` 2
 
       -- | Initialize a grid cell. Guards are used to make the initial pattern.
-      initCell ix
-
-{- Blinker
-          | ix == (A.Z :. cx :. cx) = 1
-          | ix == (A.Z :. cx-1 :. cx) = 1
-          | ix == (A.Z :. cx+1 :. cx) = 1
--}
-
-{- Acorn -}
-          | ix == (A.Z :. cx :. cx) = 1
-          | ix == (A.Z :. cx+1 :. cx) = 1
-          | ix == (A.Z :. cx+1 :. cx+2) = 1
-          | ix == (A.Z :. cx+3 :. cx+1) = 1
-          | ix == (A.Z :. cx+4 :. cx) = 1
-          | ix == (A.Z :. cx+5 :. cx) = 1
-          | ix == (A.Z :. cx+6 :. cx) = 1
-
-          | otherwise = 0
+      initCell' (A.Z :. x :. y) =
+          if initCell pattern (x - cx, cx - y)
+          then 1
+          else 0
 
 -- | Evolve the grid one generation
 updateGrid :: Grid -> IO Grid
