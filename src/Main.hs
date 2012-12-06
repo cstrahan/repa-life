@@ -27,6 +27,7 @@ import Data.Array.Repa ((:.) (..))
 import qualified Data.Array.Repa.Stencil as A
 import Data.Array.Repa.Stencil.Dim2
 import Data.Bits
+import Data.Maybe (isJust)
 import qualified Data.Vector.Storable as VS
 import Data.Word
 import Foreign.Storable
@@ -72,7 +73,7 @@ run gridSize generations = do
       GL.textureWrapMode GL.Texture2D coord $= (GL.Repeated, GL.Clamp)
 
   -- Use `finally` so that `quit` is called whether or not `mainLoop` throws an exception
-  finally (mainLoop (freshGrid gridSize) generations) quit
+  finally (mainLoop (freshGrid gridSize) generations False) quit
 
 -- | Resize the viewport and set the projection matrix
 resize :: (Integral n1, Integral n2) => n1 -> n2 -> n2 -> IO ()
@@ -103,13 +104,14 @@ quit = GLFW.closeWindow >> GLFW.terminate
 printErrors = GL.get GL.errors >>= mapM_ print
 
 -- | Draw the window and handle input
-mainLoop :: Grid -> Maybe Int -> IO ()
-mainLoop !grid generations = do
+mainLoop :: Grid -> Maybe Int -> Bool -> IO ()
+mainLoop !grid generations active = do
   now <- GLFW.getTime
-  grid' <- updateGrid grid
+  grid' <- if (active || isJust generations) then updateGrid grid else return grid
   draw grid'
 
   -- Input is polled each time swapBuffers is called
+  space <- GLFW.keyIsPressed GLFW.KeySpace
   esc <- GLFW.keyIsPressed GLFW.KeyEsc
   isClosed <- fmap not GLFW.windowIsOpen
   unless (esc || isClosed) $ do
@@ -120,7 +122,7 @@ mainLoop !grid generations = do
            threadDelay (truncate $ 1000000 * frameLeft)
 
       unless (generations == (Just 0)) $
-             mainLoop grid' (fmap pred generations)
+             mainLoop grid' (fmap pred generations) (active || space)
 
   where
     -- maximum frame rate
