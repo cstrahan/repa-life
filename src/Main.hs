@@ -148,7 +148,7 @@ freshGrid gridSize pattern =
       cx = gridSize `div` 2
 
       -- | Initialize a grid cell. Guards are used to make the initial pattern.
-      initCell' (A.Z :. x :. y) =
+      initCell' (A.Z :. y :. x) =
           if initCell pattern (x - cx, cx - y)
           then 1
           else 0
@@ -189,7 +189,7 @@ draw grid = do
   GLFW.swapBuffers
 
     where
-      gridShape@(A.Z :. width :. height) = A.extent grid
+      gridShape@(A.Z :. height :. width) = A.extent grid
 
       maxS = nextPowerOf2 width
       maxT = nextPowerOf2 height
@@ -200,7 +200,7 @@ draw grid = do
       -- | Convert the grid to a texture and send it to the graphics card
       uploadGridAsTexture = do
               -- convert the grid to grayscale and pad it to the texture size
-              grayscale <- A.computeUnboxedP . pad . A.transpose . A.map toGrayscale
+              grayscale <- A.computeUnboxedP . pad . A.map toGrayscale
                            $ grid :: IO Grid
 
               -- convert the grid to a storable vector
@@ -218,7 +218,7 @@ draw grid = do
       toGrayscale _ = 0
 
       pad ar = A.traverse ar
-               (const (A.Z :. (fromIntegral maxS) :. (fromIntegral maxT))) $ \lkup ix ->
+               (const (A.Z :. (fromIntegral maxT) :. (fromIntegral maxS))) $ \lkup ix ->
                    if A.inShape gridShape ix
                    then lkup ix
                    else 0
