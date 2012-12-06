@@ -17,13 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module PatternParsers
     ( parseFile
-    , tryParsePlainText
 
     , PatternParseResult (SuccessfulParse, ParseError, UnknownFormat, FileError)
     ) where
 
 import Control.Exception
 import Control.Monad
+import Data.Functor.Identity
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Prelude hiding (catch)
@@ -33,6 +33,7 @@ import Text.Parsec.Text
 
 import LifePattern
 import qualified PatternParsers.PlainText as PlainText
+import qualified PatternParsers.RLE as RLE
 
 data PatternParseResult = SuccessfulParse LifePattern
                         | ParseError String P.ParseError
@@ -41,13 +42,15 @@ data PatternParseResult = SuccessfulParse LifePattern
                         | IncorrectFormat
                           deriving Show
 
-tryParsePlainText :: FilePath -> IO PatternParseResult
-tryParsePlainText fname =
-    if (takeExtension fname) == ".cells"
+makeParser :: (String, String, P.ParsecT T.Text () Identity LifePattern)
+           -> FilePath
+           -> IO PatternParseResult
+makeParser (extension, name, parser) fname =
+    if (takeExtension fname) == extension
     then do
       contents <- T.readFile fname
-      return $ case P.parse PlainText.file fname contents of
-                 Left err -> ParseError "plain text" err
+      return $ case P.parse parser fname contents of
+                 Left err -> ParseError name err
                  Right pat -> SuccessfulParse pat
     else return IncorrectFormat
 
@@ -63,4 +66,5 @@ parseFile fname = do
       selectAttempt IncorrectFormat = id
       selectAttempt result = const result
 
-parsers = [tryParsePlainText]
+parsers = map makeParser [(".cells", "plain text", PlainText.file),
+                          (".rle", "rle", RLE.file)]

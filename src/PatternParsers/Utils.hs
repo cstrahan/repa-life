@@ -19,10 +19,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module PatternParsers.Utils
     ( eol
+    , offsetToCenter
     ) where
 
+import qualified Data.Set as Set
 import Text.Parsec
+
+import LifePattern (LiveCellSet)
 
 eol :: Stream s m Char => ParsecT s u m ()
 eol = (string "\r\n" >> return ())
       <|> (char '\n' >> optional (char '\r'))
+
+-- | Find the center of the pattern
+offsetToCenter liveSet =
+    let (xmax, ymax) = Set.foldr (\(a, b) (a', b') -> (max a a', max b b')) (0, 0) liveSet
+        cx = xmax `div` 2
+        cy = ymax `div` 2
+    in (-cx, -cy)

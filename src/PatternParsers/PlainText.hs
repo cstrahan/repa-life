@@ -36,12 +36,7 @@ file = do
   startLine <- getSourceLine
   liveSet <- fmap Set.unions $ sepEndBy (patternLine startLine) eol
 
-  -- Find the center of the pattern
-  let (xmax, ymax) = Set.foldr (\(a, b) (a', b') -> (max a a', max b b')) (0, 0) liveSet
-      cx = xmax `div` 2
-      cy = ymax `div` 2
-
-  return $ LifePattern name comments liveSet (-cx, -cy)
+  return $ LifePattern name comments liveSet (offsetToCenter liveSet)
 
 header :: Stream s m Char => ParsecT s u m String
 header = do

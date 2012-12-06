@@ -26,6 +26,7 @@ executable repa-life
                        parsec ==3.1.*,
                        containers ==0.4.*,
                        filepath ==1.3.*,
-                       text ==0.11.*
+                       text ==0.11.*,
+                       transformers ==0.3.*
   hs-source-dirs:      src
   ghc-options:         -O2 -threaded -rtsopts
