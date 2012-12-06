@@ -142,14 +142,14 @@ mainLoop !grid generations active = do
 -- | Create a new grid
 freshGrid :: Int -> LifePattern -> Grid
 freshGrid gridSize pattern =
-    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCell'
+    A.computeS . A.fromFunction (A.Z :. gridSize :. gridSize) $ initCell
 
     where
       cx = gridSize `div` 2
 
       -- | Initialize a grid cell. Guards are used to make the initial pattern.
-      initCell' (A.Z :. y :. x) =
-          if initCell pattern (x - cx, cx - y)
+      initCell (A.Z :. y :. x) =
+          if isCellLive pattern (x - cx, cx - y)
           then 1
           else 0
 

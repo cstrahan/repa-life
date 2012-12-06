@@ -27,10 +27,7 @@ import qualified Data.Set as Set
 import Text.Parsec
 
 import LifePattern
-
-eol :: Stream s m Char => ParsecT s u m ()
-eol = (string "\r\n" >> return ())
-      <|> (char '\n' >> optional (char '\r'))
+import PatternParsers.Utils
 
 file :: Stream s m Char => ParsecT s u m LifePattern
 file = do
@@ -39,7 +36,12 @@ file = do
   startLine <- getSourceLine
   liveSet <- fmap Set.unions $ sepEndBy (patternLine startLine) eol
 
-  return $ LifePattern name comments (patternFromLiveSet liveSet)
+  -- Find the center of the pattern
+  let (xmax, ymax) = Set.foldr (\(a, b) (a', b') -> (max a a', max b b')) (0, 0) liveSet
+      cx = xmax `div` 2
+      cy = ymax `div` 2
+
+  return $ LifePattern name comments liveSet (-cx, -cy)
 
 header :: Stream s m Char => ParsecT s u m String
 header = do
@@ -52,7 +54,7 @@ comment = do
   char '!'
   many $ noneOf "\n\r\t"
 
-patternLine :: Stream s m Char => Int -> ParsecT s u m (Set.Set (Int, Int))
+patternLine :: Stream s m Char => Int -> ParsecT s u m LiveCellSet
 patternLine startLine = do
   line <- fmap (\l -> l - startLine) getSourceLine
   living <- many liveCell
@@ -69,11 +71,5 @@ patternLine startLine = do
 
 getSourceLine :: Monad m => ParsecT s u m Int
 getSourceLine = fmap sourceLine getPosition
-
-patternFromLiveSet liveSet (x, y) =
-    let (xmax, ymax) = Set.foldr (\(a, b) (a', b') -> (max a a', max b b')) (0, 0) liveSet
-        cx = xmax `div` 2
-        cy = ymax `div` 2
-    in Set.member (x + cx, y + cy) liveSet
 
 test = "!Name: Glider\n!comment followed by empty line\n!\n.O.\n..O\nOOO\n"

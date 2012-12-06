@@ -15,20 +15,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
-module LifePattern where
+{-# LANGUAGE FlexibleContexts #-}
 
-import qualified Data.Set as Set
+module PatternParsers.Utils
+    ( eol
+    ) where
 
-type LiveCellSet = Set.Set (Int, Int)
+import Text.Parsec
 
-data LifePattern = LifePattern
-    { name :: String
-    , comments :: [String]
-    , liveCells :: LiveCellSet
-    , offset :: (Int, Int)
-    } deriving Show
-
-isCellLive :: LifePattern -> (Int, Int) -> Bool
-isCellLive pattern (x, y) =
-    let (ox, oy) = offset pattern
-    in Set.member (x - ox, y - oy) . liveCells $ pattern
+eol :: Stream s m Char => ParsecT s u m ()
+eol = (string "\r\n" >> return ())
+      <|> (char '\n' >> optional (char '\r'))
