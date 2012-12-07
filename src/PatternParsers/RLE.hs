@@ -22,6 +22,7 @@ module PatternParsers.RLE
     ) where
 
 import Control.Applicative hiding (many, (<|>))
+import Data.List (sort)
 import qualified Data.Set as Set
 import Text.Parsec
 
@@ -36,7 +37,7 @@ data RleMetadata = Comment String
                  | Unknown
                    deriving Show
 
-file :: Stream s m Char => ParsecT s u m LP.LifePattern
+file :: Stream s m Char => PatternParser s m LP.LifePattern
 file = do
   metadata <- header
   liveCells <- pattern (0, 0) Set.empty
@@ -47,38 +48,40 @@ file = do
                  metadata
   return $ lp {LP.comments = (LP.comments lp ++ comments)}
 
-header :: Stream s m Char => ParsecT s u m [RleMetadata]
+header :: Stream s m Char => PatternParser s m [RleMetadata]
 header = (++) <$> many hashLine <*> sizeLine
 
-hashLine :: Stream s m Char => ParsecT s u m RleMetadata
+hashLine :: Stream s m Char => PatternParser s m RleMetadata
 hashLine = do
   char '#'
   type_ <- letter
   spaces
   meat <- case type_ of
-            'C' -> Comment <$> many (noneOf "\n\r")
-            'c' -> Comment <$> many (noneOf "\n\r")
-            'N' -> Name <$> many (noneOf "\n\r")
-            'O' -> (Comment . ("Author: " ++)) <$> many (noneOf "\n\r")
+            'C' -> Comment <$> restOfLine
+            'c' -> Comment <$> restOfLine
+            'N' -> Name <$> restOfLine
+            'O' -> (Comment . ("Author: " ++)) <$> restOfLine
             'P' -> Offset <$> offset
             'R' -> Offset <$> offset
-            -- Error on any file that has a rules line
-            'r' -> unexpected "rules not supported"
+            'r' -> checkLifeRules >> return Unknown
             _   -> return Unknown
   eol
   return meat
 
-offset :: Stream s m Char => ParsecT s u m (Int, Int)
+restOfLine :: Stream s m Char => PatternParser s m String
+restOfLine = many (noneOf "\n\r")
+
+offset :: Stream s m Char => PatternParser s m (Int, Int)
 offset = do
   x <- number
   skipMany1 space
   y <- number
   return (x, y)
 
-number :: Stream s m Char => ParsecT s u m Int
+number :: Stream s m Char => PatternParser s m Int
 number = read <$> many1 digit
 
-sizeLine :: Stream s m Char => ParsecT s u m [RleMetadata]
+sizeLine :: Stream s m Char => PatternParser s m [RleMetadata]
 sizeLine = sepBy attribute (skipMany (oneOf " \t") >> char ',' >> spaces) <* eol
     where
       attribute = width <|> height <|> rules
@@ -102,10 +105,36 @@ sizeLine = sepBy attribute (skipMany (oneOf " \t") >> char ',' >> spaces) <* eol
         spaces
         char '='
         spaces
-        (string "B3/S23" <|> string "b3/s23" <?> "rules not supported")
+        checkLifeRules
         return Unknown
 
-pattern :: Stream s m Char => (Int, Int) -> LP.LiveCellSet -> ParsecT s u m LP.LiveCellSet
+-- | Check that the rules given in the file describe Conway's Life.
+-- Warn that other rules are not supported.
+checkLifeRules :: Stream s m Char => PatternParser s m ()
+checkLifeRules = do
+  rules <- withLetters <|> withNoLetters
+  if rules /= ("3", "23")
+    then patternWarning "rules other than Life not supported"
+    else return ()
+
+    where
+      part = sort `fmap` many digit
+
+      withNoLetters =
+          do survive <- part
+             char '/'
+             birth <- part
+             return (birth, survive)
+
+      withLetters =
+          do oneOf "bB"
+             birth <- part
+             char '/'
+             oneOf "sS"
+             survive <- part
+             return (birth, survive)
+
+pattern :: Stream s m Char => (Int, Int) -> LP.LiveCellSet -> PatternParser s m LP.LiveCellSet
 pattern (x, y) liveCells = (char '!' >> return liveCells)
                            <|> (skipMany1 space >> pattern (x, y) liveCells)
                            <|> sequence

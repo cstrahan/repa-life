@@ -29,7 +29,7 @@ import Text.Parsec
 import LifePattern
 import PatternParsers.Utils
 
-file :: Stream s m Char => ParsecT s u m LifePattern
+file :: Stream s m Char => PatternParser s m LifePattern
 file = do
   name <- header <* eol
   comments <- fmap (filter (/= "")) $ sepEndBy comment eol
@@ -38,18 +38,18 @@ file = do
 
   return $ LifePattern name comments liveSet (offsetToCenter liveSet)
 
-header :: Stream s m Char => ParsecT s u m String
+header :: Stream s m Char => PatternParser s m String
 header = do
   char '!'
   string "Name: "
   many $ noneOf "\n\r\t"
 
-comment :: Stream s m Char => ParsecT s u m String
+comment :: Stream s m Char => PatternParser s m String
 comment = do
   char '!'
   many $ noneOf "\n\r\t"
 
-patternLine :: Stream s m Char => Int -> ParsecT s u m LiveCellSet
+patternLine :: Stream s m Char => Int -> PatternParser s m LiveCellSet
 patternLine startLine = do
   line <- fmap (\l -> l - startLine) getSourceLine
   living <- many liveCell
@@ -64,7 +64,7 @@ patternLine startLine = do
           then Set.insert (x, y) living
           else living
 
-getSourceLine :: Monad m => ParsecT s u m Int
+getSourceLine :: Monad m => PatternParser s m Int
 getSourceLine = fmap sourceLine getPosition
 
 test = "!Name: Glider\n!comment followed by empty line\n!\n.O.\n..O\nOOO\n"

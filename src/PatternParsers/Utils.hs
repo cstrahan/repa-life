@@ -20,12 +20,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 module PatternParsers.Utils
     ( eol
     , offsetToCenter
+    , PatternParser
+    , patternWarning
+    , parsePatternFile
     ) where
 
+import Control.Applicative hiding ((<|>), optional)
+import Control.Monad.Writer
 import qualified Data.Set as Set
 import Text.Parsec
 
-import LifePattern (LiveCellSet)
+import LifePattern (LifePattern, LiveCellSet)
+
+type PatternParser s m = ParsecT s [String] m
+
+patternWarning :: Stream s m Char => String -> PatternParser s m ()
+patternWarning msg = modifyState (++ [msg])
+
+parsePatternFile :: Stream s m Char => PatternParser s m LifePattern -> FilePath -> s
+                 -> m (Either ParseError (LifePattern, [String]))
+parsePatternFile parser fname contents =
+    runPT parser' [] fname contents
+
+    where
+      parser' = (,) <$> parser <*> getState
 
 eol :: Stream s m Char => ParsecT s u m ()
 eol = (string "\r\n" >> return ())

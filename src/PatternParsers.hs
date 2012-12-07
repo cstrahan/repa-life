@@ -34,6 +34,7 @@ import Text.Parsec.Text
 import LifePattern
 import qualified PatternParsers.PlainText as PlainText
 import qualified PatternParsers.RLE as RLE
+import PatternParsers.Utils (PatternParser, parsePatternFile)
 
 data PatternParseResult = SuccessfulParse LifePattern
                         | ParseError String P.ParseError
@@ -42,17 +43,25 @@ data PatternParseResult = SuccessfulParse LifePattern
                         | IncorrectFormat
                           deriving Show
 
-makeParser :: (String, String, P.ParsecT T.Text () Identity LifePattern)
+makeParser :: (String, String, PatternParser T.Text IO LifePattern)
            -> FilePath
            -> IO PatternParseResult
 makeParser (extension, name, parser) fname =
     if (takeExtension fname) == extension
     then do
       contents <- T.readFile fname
-      return $ case P.parse parser fname contents of
-                 Left err -> ParseError name err
-                 Right pat -> SuccessfulParse pat
+      result <- parsePatternFile parser fname contents
+      either err success result
+
     else return IncorrectFormat
+
+    where
+      err = return . ParseError name
+
+      success (pattern, warnings) = do
+        when (not . null $ warnings) $
+             putStrLn . unlines . map ("Warning: " ++) $ warnings
+        return $ SuccessfulParse pattern
 
 parseFile :: FilePath -> IO PatternParseResult
 parseFile fname = do
